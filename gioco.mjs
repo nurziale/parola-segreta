@@ -6,3 +6,4 @@ const tentativo = process.argv[2];
 
 console.log(tentativo);
 console.log(valuta(tentativo, segreta));
+
