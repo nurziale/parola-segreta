@@ -1,33 +1,36 @@
 import http from 'node:http';
 
+
+import fs from 'node:fs';
 import { valuta,controlla } from './regole.mjs';
 
 const porta = process.env.PORTA;
 const segreta = 'porco';
 
+function inviaJson(risposta, codice, dati) {
+risposta.statusCode = codice;
+risposta.setHeader('Content-Type', 'application/json; charset=utf-8');
+risposta.end(JSON.stringify(dati) + '\n');
+}
+
 function rispondi(richiesta, risposta) {
 	console.log(richiesta.method, richiesta.url);
-	risposta.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
 	const indirizzo = new URL(richiesta.url, 'http://localhost');
 	const percorso = indirizzo.pathname;
-
 	if (percorso === '/') {
-	risposta.end('Qui Parola segreta\n');
-	} else if (percorso === '/regole') {
-	risposta.end('Indovina la parola di cinque lettere.\n');
+	risposta.setHeader('Content-Type', 'text/html; charset=utf-8');
+	risposta.end(fs.readFileSync('pubblico/index.html'));
 	} else if (percorso === '/tenta') {
 	const parola = indirizzo.searchParams.get('parola');
 	const errore = controlla(parola);
 	if (errore !== '') {
-	risposta.statusCode = 400;
-	risposta.end(errore + '\n');
+	inviaJson(risposta, 400, { errore: errore });
 	} else {
-	risposta.end(valuta(parola, segreta) + '\n');
+	inviaJson(risposta, 200, { parola: parola, esito: valuta(parola, segreta)
+	});
 	}
 	} else {
-	risposta.statusCode = 404;
-	risposta.end('Indirizzo sconosciuto\n');
+	inviaJson(risposta, 404, { errore: 'Indirizzo sconosciuto' });
 	}
 }
 const server = http.createServer(rispondi);

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parola segreta</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 34rem; margin: 2rem auto; padding: 0 1rem; color: #1c1c1c; background: #fff; }
+    h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+    p.nota { color: #555; margin-top: 0; }
+    form { display: flex; gap: 0.5rem; margin: 1rem 0; }
+    input { font-size: 1.2rem; padding: 0.4rem 0.6rem; width: 9rem; border: 1px solid #777; border-radius: 4px; }
+    button { font-size: 1rem; padding: 0.4rem 0.9rem; border: 1px solid #333; border-radius: 4px; background: #333; color: #fff; cursor: pointer; }
+    button.secondario { background: #fff; color: #333; }
+    .riga { display: flex; gap: 0.3rem; margin-bottom: 0.3rem; }
+    .casella { width: 2.6rem; height: 2.6rem; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 700; text-transform: uppercase; color: #fff; border-radius: 4px; }
+    .giusta { background: #2e7d32; }
+    .presente { background: #c9a227; }
+    .assente { background: #777; }
+    #messaggio { min-height: 1.5rem; color: #a3261a; }
+    table { border-collapse: collapse; margin-top: 0.5rem; }
+    th, td { text-align: left; padding: 0.2rem 1rem 0.2rem 0; border-bottom: 1px solid #ddd; }
+    h2 { font-size: 1.1rem; margin-top: 1.8rem; }
+    #notizie { list-style: none; padding: 0; color: #333; }
+    #notizie li { padding: 0.15rem 0; border-bottom: 1px dotted #ccc; }
+    .legenda { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; font-size: 0.9rem; color: #555; margin: 0.4rem 0 1rem; }
+    .legenda > span { display: inline-flex; align-items: center; gap: 0.35rem; }
+    .casella.piccola { width: 1.3rem; height: 1.3rem; font-size: 0.8rem; }
+    .nascosto { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Parola segreta</h1>
+  <p class="nota">Scrivi una parola italiana di cinque lettere e premi Prova: i colori dicono quanto sei vicino alla parola segreta.</p>
+  <p class="nota">Vanno bene nomi comuni, aggettivi, verbi e le altre parole del dizionario, anche al plurale o coniugate (gatti, belle, vanno). Non vanno bene i nomi propri (Dario, Paolo) e le parole con l'accento (città).</p>
+  <p class="legenda">
+    <span><span class="casella giusta piccola">a</span> lettera al posto giusto</span>
+    <span><span class="casella presente piccola">a</span> lettera presente, in un'altra posizione</span>
+    <span><span class="casella assente piccola">a</span> lettera assente</span>
+  </p>
+  <p class="nota">I colori non contano le lettere: una casella gialla dice che quella lettera c'è nella parola, e può essere la stessa che hai già trovato in un'altra casella.</p>
+  
+  <form id="modulo">
+    <input id="campo" maxlength="5" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="cinque lettere" autofocus>
+    <button>Prova</button>
+  </form>
+  <p id="messaggio"></p>
+  <div id="griglia"></div>
+
+  <script>
+    // Disegna una riga della griglia: una casella colorata per ogni lettera.
+    function disegnaTentativo(parola, esito) {
+      const riga = document.createElement('div');
+      riga.className = 'riga';
+      for (let i = 0; i < 5; i++) {
+        const casella = document.createElement('div');
+        casella.textContent = parola[i];
+        if (esito[i] === '=') {
+          casella.className = 'casella giusta';
+        } else if (esito[i] === '+') {
+          casella.className = 'casella presente';
+        } else {
+          casella.className = 'casella assente';
+        }
+        riga.appendChild(casella);
+      }
+      document.getElementById('griglia').appendChild(riga);
+    }
+
+    // Quando il giocatore invia il modulo, la pagina chiede al server di valutare la parola.
+    document.getElementById('modulo').addEventListener('submit', function (evento) {
+      evento.preventDefault();                      // la pagina non va ricaricata
+      const campo = document.getElementById('campo');
+
+      // Indirizzo relativo: senza barra iniziale.
+      fetch('tenta?parola=' + encodeURIComponent(campo.value))
+        .then(function (risposta) {
+          return risposta.json();
+        })
+        .then(function (dati) {
+          if (dati.errore) {
+            document.getElementById('messaggio').textContent = dati.errore;
+          } else {
+            document.getElementById('messaggio').textContent = '';
+            disegnaTentativo(dati.parola, dati.esito);
+            campo.value = '';
+          }
+        });
+    });
+  </script>
+</body>
+</html>
