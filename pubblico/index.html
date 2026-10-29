@@ -39,15 +39,23 @@
     <span><span class="casella assente piccola">a</span> lettera assente</span>
   </p>
   <p class="nota">I colori non contano le lettere: una casella gialla dice che quella lettera c'è nella parola, e può essere la stessa che hai già trovato in un'altra casella.</p>
+  <p class="nota">La partita in corso è la numero <span id="numero">…</span>.</p>
   
   <form id="modulo">
     <input id="campo" maxlength="5" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="cinque lettere" autofocus>
     <button>Prova</button>
+    <button type="button" class="secondario" id="nuova">Nuova partita</button>
   </form>
   <p id="messaggio"></p>
   <div id="griglia"></div>
 
   <script>
+    let partita = null;      // il numero della partita in corso: lo decide il server
+
+    // Il browser ricorda il numero della partita in corso, per ritrovarla dopo un ricaricamento.
+    // La chiave contiene l'indirizzo della pagina: ogni server ha il proprio ricordo.
+    const chiave = 'partita:' + location.pathname;
+
     // Disegna una riga della griglia: una casella colorata per ogni lettera.
     function disegnaTentativo(parola, esito) {
       const riga = document.createElement('div');
@@ -67,26 +75,91 @@
       document.getElementById('griglia').appendChild(riga);
     }
 
-    // Quando il giocatore invia il modulo, la pagina chiede al server di valutare la parola.
-    document.getElementById('modulo').addEventListener('submit', function (evento) {
-      evento.preventDefault();                      // la pagina non va ricaricata
-      const campo = document.getElementById('campo');
+    // Mostra una partita ricevuta dal server, con i tentativi già fatti.
+    function mostraPartita(dati) {
+      partita = dati.id;
+      localStorage.setItem(chiave, dati.id);
+      document.getElementById('numero').textContent = dati.id;
+      document.getElementById('griglia').textContent = '';
+      for (const tentativo of dati.tentativi) {
+        disegnaTentativo(tentativo.parola, tentativo.esito);
+      }
+      if (dati.finita) {
+        document.getElementById('messaggio').textContent = 'Indovinata.';
+      } else {
+        document.getElementById('messaggio').textContent = '';
+      }
+    }
 
-      // Indirizzo relativo: senza barra iniziale.
-      fetch('tenta?parola=' + encodeURIComponent(campo.value))
+    // Comincia una partita: POST partite
+    function nuovaPartita() {
+      fetch('partite', { method: 'POST' })
         .then(function (risposta) {
           return risposta.json();
         })
         .then(function (dati) {
           if (dati.errore) {
             document.getElementById('messaggio').textContent = dati.errore;
+            return;
+          }
+          mostraPartita(dati);
+        });
+    }
+
+    // All'apertura della pagina: riprende la partita in corso, se ce n'è una: GET partite/<numero>.
+    // Ricaricare la pagina non deve creare nulla: una partita nuova nasce solo se non ce n'è una da riprendere.
+    function riprendiPartita() {
+      const ricordata = localStorage.getItem(chiave);
+      if (ricordata === null) {
+        nuovaPartita();
+        return;
+      }
+      fetch('partite/' + ricordata)
+        .then(function (risposta) {
+          return risposta.json();
+        })
+        .then(function (dati) {
+          if (dati.errore) {
+            nuovaPartita();          // la partita ricordata non esiste più, o è di un altro giocatore
           } else {
-            document.getElementById('messaggio').textContent = '';
-            disegnaTentativo(dati.parola, dati.esito);
-            campo.value = '';
+            mostraPartita(dati);
           }
         });
+    }
+
+    // Invia un tentativo: POST partite/<numero>/tentativi, con la parola nel corpo della richiesta
+    function inviaTentativo(parola) {
+      fetch('partite/' + partita + '/tentativi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parola: parola })
+      })
+        .then(function (risposta) {
+          return risposta.json();
+        })
+        .then(function (dati) {
+          if (dati.errore) {
+            document.getElementById('messaggio').textContent = dati.errore;
+            return;
+          }
+          disegnaTentativo(dati.parola, dati.esito);
+          document.getElementById('campo').value = '';
+          if (dati.esito === '=====') {
+            document.getElementById('messaggio').textContent = 'Indovinata.';
+          } else {
+            document.getElementById('messaggio').textContent = '';
+          }
+        });
+    }
+
+    document.getElementById('modulo').addEventListener('submit', function (evento) {
+      evento.preventDefault();
+      // La parola parte in minuscolo: è una comodità per chi scrive. Il controllo vero resta sul server.
+      inviaTentativo(document.getElementById('campo').value.toLowerCase());
     });
+    document.getElementById('nuova').addEventListener('click', nuovaPartita);
+
+    riprendiPartita();
   </script>
 </body>
 </html>
