@@ -39,15 +39,31 @@
     <span><span class="casella assente piccola">a</span> lettera assente</span>
   </p>
   <p class="nota">I colori non contano le lettere: una casella gialla dice che quella lettera c'è nella parola, e può essere la stessa che hai già trovato in un'altra casella.</p>
-  <p class="nota">La partita in corso è la numero <span id="numero">…</span>.</p>
   
-  <form id="modulo">
-    <input id="campo" maxlength="5" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="cinque lettere" autofocus>
-    <button>Prova</button>
-    <button type="button" class="secondario" id="nuova">Nuova partita</button>
-  </form>
+  <div id="ingresso">
+    <p class="nota">Scrivi il tuo nome per giocare.</p>
+    <form id="accesso">
+      <input id="nome" maxlength="20" autocomplete="off">
+      <button>Entra</button>
+    </form>
+  </div>
+  
+  <div id="gioco" class="nascosto">
+    <p class="nota">Giocatore: <strong id="chi"></strong>. La partita in corso è la numero <span id="numero">…</span>.</p>
+    <form id="modulo">
+      <input id="campo" maxlength="5" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="cinque lettere">
+      <button>Prova</button>
+      <button type="button" class="secondario" id="nuova">Nuova partita</button>
+    </form>
+  </div>
   <p id="messaggio"></p>
   <div id="griglia"></div>
+  
+  <h2>Classifica</h2>
+  <table>
+    <thead><tr><th>Giocatore</th><th>Parole indovinate</th></tr></thead>
+    <tbody id="classifica"></tbody>
+  </table>
 
   <script>
     let partita = null;      // il numero della partita in corso: lo decide il server
@@ -146,6 +162,7 @@
           document.getElementById('campo').value = '';
           if (dati.esito === '=====') {
             document.getElementById('messaggio').textContent = 'Indovinata.';
+            aggiornaClassifica();
           } else {
             document.getElementById('messaggio').textContent = '';
           }
@@ -159,7 +176,69 @@
     });
     document.getElementById('nuova').addEventListener('click', nuovaPartita);
 
-    riprendiPartita();
+    // Legge la classifica: GET classifica
+    function aggiornaClassifica() {
+      fetch('classifica')
+        .then(function (risposta) {
+          return risposta.json();
+        })
+        .then(function (righe) {
+          const corpo = document.getElementById('classifica');
+          corpo.textContent = '';
+          for (const riga of righe) {
+            const tr = document.createElement('tr');
+            const nome = document.createElement('td');
+            const vinte = document.createElement('td');
+            nome.textContent = riga.nome;
+            vinte.textContent = riga.vinte;
+            tr.appendChild(nome);
+            tr.appendChild(vinte);
+            corpo.appendChild(tr);
+          }
+        });
+    }
+
+    // Mostra il gioco al posto del modulo di ingresso
+    function entra(nome) {
+      document.getElementById('chi').textContent = nome;
+      document.getElementById('ingresso').className = 'nascosto';
+      document.getElementById('gioco').className = '';
+      riprendiPartita();
+    }
+
+    // Ingresso: POST accesso, con il nome nel corpo. Il server risponde con un cookie,
+    // che il browser conserva e allega da solo a tutte le richieste successive.
+    document.getElementById('accesso').addEventListener('submit', function (evento) {
+      evento.preventDefault();
+      fetch('accesso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: document.getElementById('nome').value })
+      })
+        .then(function (risposta) {
+          return risposta.json();
+        })
+        .then(function (dati) {
+          if (dati.errore) {
+            document.getElementById('messaggio').textContent = dati.errore;
+          } else {
+            entra(dati.nome);
+          }
+        });
+    });
+
+    // All'apertura della pagina: il server mi riconosce già? GET io risponde con il nome, oppure con null
+    fetch('io')
+      .then(function (risposta) {
+        return risposta.json();
+      })
+      .then(function (dati) {
+        if (dati.nome) {
+          entra(dati.nome);
+        }
+      });
+
+    aggiornaClassifica();
   </script>
 </body>
 </html>

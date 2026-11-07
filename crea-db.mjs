@@ -3,12 +3,21 @@ import { DatabaseSync } from 'node:sqlite';
 const db = new DatabaseSync('dati.db');
 db.exec('DROP TABLE IF EXISTS tentativi');
 db.exec('DROP TABLE IF EXISTS partite');
+db.exec('DROP TABLE IF EXISTS sessioni');
+db.exec('DROP TABLE IF EXISTS giocatori');
 db.exec('DROP TABLE IF EXISTS parole');
 db.exec('DROP TABLE IF EXISTS segrete');
 db.exec('CREATE TABLE parole (id INTEGER PRIMARY KEY, parola TEXT NOT NULL UNIQUE)');
 db.exec('CREATE TABLE segrete (id INTEGER PRIMARY KEY, parola TEXT NOT NULL UNIQUE)');
+db.exec('CREATE TABLE giocatori (id INTEGER PRIMARY KEY, nome TEXT NOT NULL UNIQUE)');
+
+db.exec(`CREATE TABLE sessioni (
+codice TEXT PRIMARY KEY,
+giocatore_id INTEGER NOT NULL REFERENCES giocatori(id)
+)`);
 db.exec(`CREATE TABLE partite (
 id INTEGER PRIMARY KEY,
+giocatore_id INTEGER NOT NULL REFERENCES giocatori(id),
 segreta TEXT NOT NULL,
 finita INTEGER NOT NULL DEFAULT 0
 )`);
