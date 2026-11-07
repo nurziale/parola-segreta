@@ -64,6 +64,10 @@
     <thead><tr><th>Giocatore</th><th>Parole indovinate</th></tr></thead>
     <tbody id="classifica"></tbody>
   </table>
+  
+  <h2>Ultime mosse</h2>
+  <p class="nota">Pagine collegate in questo momento: <span id="presenti">0</span></p>
+  <ul id="notizie"></ul>
 
   <script>
     let partita = null;      // il numero della partita in corso: lo decide il server
@@ -239,6 +243,39 @@
       });
 
     aggiornaClassifica();
+
+    // ---- Il canale sempre aperto (WebSocket) ----
+
+    // Aggiunge una voce in cima all'elenco, con l'ora, e tiene solo le ultime venti.
+    // L'elenco è un registro di ciò che è successo, non l'elenco di chi è collegato.
+    function notizia(testo) {
+      const ora = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      const voce = document.createElement('li');
+      voce.textContent = ora + '  ' + testo;
+      const elenco = document.getElementById('notizie');
+      elenco.prepend(voce);
+      while (elenco.children.length > 20) {
+        elenco.lastElementChild.remove();
+      }
+    }
+
+    // L'indirizzo del canale è quello della pagina, con "ws" al posto di "http".
+    const indirizzoCanale = new URL('canale', location.href);
+    indirizzoCanale.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const canale = new WebSocket(indirizzoCanale);
+
+    // Ogni messaggio del server ha un campo "tipo", che dice come trattarlo.
+    canale.addEventListener('message', function (evento) {
+      const messaggio = JSON.parse(evento.data);
+      if (messaggio.tipo === 'presenti') {
+        document.getElementById('presenti').textContent = messaggio.quanti;
+      } else if (messaggio.tipo === 'tentativo') {
+        notizia(messaggio.nome + ' ha provato: ' + messaggio.esito);
+      } else if (messaggio.tipo === 'vittoria') {
+        notizia(messaggio.nome + ' ha indovinato in ' + messaggio.tentativi + ' tentativi');
+        aggiornaClassifica();
+      }
+    });
   </script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import { WebSocketServer } from 'ws';
 import http from 'node:http';
 import fs from 'node:fs';
 import { controlla } from './regole.mjs';
@@ -37,7 +38,15 @@ inviaJson(risposta, 201, { nome: nome });
 }
 });
 }
-function nuovoTentativo(richiesta, risposta, partita) {
+
+function avvisaTutti(messaggio) {
+for (const connessione of canale.clients) {
+connessione.send(JSON.stringify(messaggio));
+}
+}
+
+
+function nuovoTentativo(richiesta, risposta, partita, giocatore) {
 leggiCorpo(richiesta, function (dati) {
 const errore = controlla(dati.parola);
 if (errore !== '') {
@@ -47,10 +56,16 @@ inviaJson(risposta, 400, { errore: 'La partita è finita' });
 } else if (!parolaEsiste(dati.parola)) {
 inviaJson(risposta, 400, { errore: 'Parola non in elenco' });
 } else {
-inviaJson(risposta, 201, aggiungiTentativo(partita, dati.parola));
+const tentativo = aggiungiTentativo(partita, dati.parola);
+inviaJson(risposta, 201, tentativo);
+if (tentativo.esito === '=====') {
+avvisaTutti({ tipo: 'vittoria', nome: giocatore.nome, tentativi:
+partita.tentativi.length + 1 });
+}
 }
 });
 }
+
 function rispondi(richiesta, risposta) {
 console.log(richiesta.method, richiesta.url);
 const indirizzo = new URL(richiesta.url, 'http://localhost');
@@ -84,7 +99,7 @@ inviaJson(risposta, 404, { errore: 'Partita inesistente' });
 inviaJson(risposta, 200, descrivi(partita));
 } else if (metodo === 'POST' && pezzi.length === 4 && pezzi[3] ===
 'tentativi') {
-nuovoTentativo(richiesta, risposta, partita);
+nuovoTentativo(richiesta, risposta, partita, giocatore);
 } else {
 inviaJson(risposta, 404, { errore: 'Indirizzo sconosciuto' });
 }
@@ -92,7 +107,12 @@ inviaJson(risposta, 404, { errore: 'Indirizzo sconosciuto' });
 inviaJson(risposta, 404, { errore: 'Indirizzo sconosciuto' });
 }
 }
+
+
 const server = http.createServer(rispondi);
+const canale = new WebSocketServer({ server: server });
+canale.on('connection', function (connessione) {
+console.log('Canale aperto. Collegati:', canale.clients.size);
+});
 server.listen(porta);
 console.log('Server in ascolto sulla porta', porta);
-
