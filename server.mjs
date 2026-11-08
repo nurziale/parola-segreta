@@ -33,6 +33,7 @@ inviaJson(risposta, 400, { errore: 'Scrivi un nome, di venti caratteri al massim
 } else {
 const nome = dati.nome.trim();
 const codice = apriSessione(nome);
+avvisaTutti({ tipo: 'ingresso', nome: nome });
 risposta.setHeader('Set-Cookie', 'sessione=' + codice + '; HttpOnly');
 inviaJson(risposta, 201, { nome: nome });
 }
@@ -58,6 +59,7 @@ inviaJson(risposta, 400, { errore: 'Parola non in elenco' });
 } else {
 const tentativo = aggiungiTentativo(partita, dati.parola);
 inviaJson(risposta, 201, tentativo);
+avvisaTutti({ tipo: 'tentativo', nome: giocatore.nome, esito: tentativo.esito });
 if (tentativo.esito === '=====') {
 avvisaTutti({ tipo: 'vittoria', nome: giocatore.nome, tentativi:
 partita.tentativi.length + 1 });
@@ -112,7 +114,14 @@ inviaJson(risposta, 404, { errore: 'Indirizzo sconosciuto' });
 const server = http.createServer(rispondi);
 const canale = new WebSocketServer({ server: server });
 canale.on('connection', function (connessione) {
+avvisaTutti({ tipo: 'presenti', quanti: canale.clients.size });
 console.log('Canale aperto. Collegati:', canale.clients.size);
+
+
+connessione.on('close', function () {
+avvisaTutti({ tipo: 'presenti', quanti: canale.clients.size });
 });
+});
+
 server.listen(porta);
 console.log('Server in ascolto sulla porta', porta);
